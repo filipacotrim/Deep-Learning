@@ -13,8 +13,7 @@ import utils
 
 
 # Q2.1
-class LogisticRegression(nn.Module):
-
+class LogisticRegression(nn.Module): 
     def __init__(self, n_classes, n_features, **kwargs):
         """
         n_classes (int)
@@ -26,10 +25,11 @@ class LogisticRegression(nn.Module):
         pytorch to make weights and biases, have a look at
         https://pytorch.org/docs/stable/nn.html
         """
-        super().__init__()
-        # In a pytorch module, the declarations of layers needs to come after
-        # the super __init__ line, otherwise the magic doesn't work.
-
+        super(LogisticRegression, self).__init__()
+        self.layer = nn.Linear(in_features=n_features, out_features=n_classes)
+        #nn.init.zeros_(self.weight)
+        self.activation = nn.Softmax(dim=1)
+        
     def forward(self, x, **kwargs):
         """
         x (batch_size x n_features): a batch of training examples
@@ -44,7 +44,9 @@ class LogisticRegression(nn.Module):
         forward pass -- this is enough for it to figure out how to do the
         backward pass.
         """
-        raise NotImplementedError
+        X = self.layer(x)
+        X = self.activation(X)
+        return X
 
 
 # Q2.2
@@ -96,7 +98,17 @@ def train_batch(X, y, model, optimizer, criterion, **kwargs):
     This function should return the loss (tip: call loss.item()) to get the
     loss as a numerical value that is not part of the computation graph.
     """
-    raise NotImplementedError
+    # clear the gradients
+    optimizer.zero_grad()
+    # compute the model output
+    yhat = model(X)
+    # calculate loss
+    loss = criterion(yhat, y)
+    # credit assignment
+    loss.backward()
+    # update model weights
+    optimizer.step()
+    return loss.item()
 
 
 def predict(model, X):
