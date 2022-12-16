@@ -47,16 +47,21 @@ class LinearModel(object):
 
 
 class Perceptron(LinearModel):
+        
     def update_weight(self, x_i, y_i, **kwargs):
         """
         x_i (n_features): a single training example
         y_i (scalar): the gold label for that example
         other arguments are ignored
         """
-        # Q1.1a
-        raise NotImplementedError
-
-
+        rate = 1
+        
+        y_pred = np.argmax(self.W.dot(x_i))
+        
+        if y_pred != y_i:
+            self.W[y_i,:] +=  rate * x_i
+            self.W[y_pred,:] -= rate * x_i
+        
 class LogisticRegression(LinearModel):
     def update_weight(self, x_i, y_i, learning_rate=0.001):
         """
@@ -64,8 +69,18 @@ class LogisticRegression(LinearModel):
         y_i: the gold label for that example
         learning_rate (float): keep it at the default value for your plots
         """
-        # Q1.1b
-        raise NotImplementedError
+        # Label scores according to the model (num_labels x 1).
+        label_scores = self.W.dot(x_i)[:, None]
+        
+        # One-hot vector with the true label (num_labels x 1).
+        y_one_hot = np.zeros((np.size(self.W, 0), 1))
+        y_one_hot[y_i] = 1
+        
+        # Softmax function.
+        # This gives the label probabilities according to the model (num_labels x 1).
+        label_probabilities = np.exp(label_scores) / np.sum(np.exp(label_scores))
+        # SGD update. W is num_labels x num_features.
+        self.W += learning_rate * (y_one_hot - label_probabilities) * x_i[None, :]
 
 
 class MLP(object):
@@ -159,7 +174,8 @@ def main():
         )
         valid_accs.append(model.evaluate(dev_X, dev_y))
         test_accs.append(model.evaluate(test_X, test_y))
-
+    print(model.W)
+    
     # plot
     plot(epochs, valid_accs, test_accs)
 
