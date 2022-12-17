@@ -52,7 +52,7 @@ class LogisticRegression(nn.Module):
 # Q2.2
 class FeedforwardNetwork(nn.Module):
     def __init__(
-            self, n_classes, n_features, hidden_size, layers,
+            self, n_classes, n_features, hidden_size, num_layers,
             activation_type, dropout, **kwargs):
         """
         n_classes (int)
@@ -67,7 +67,25 @@ class FeedforwardNetwork(nn.Module):
         includes modules for several activation functions and dropout as well.
         """
         super().__init__()
-        # Implement me!
+        self.w = nn.ModuleList()
+        self.dropout = nn.Dropout(p=dropout)
+        if activation_type == 'tanh':
+            self.activation = nn.Tanh()
+        elif activation_type == 'relu':
+            self.activation = nn.ReLU()
+
+        self.dropout = nn.Dropout(p=dropout)
+        #First Layer
+        self.w.append(nn.Linear(n_features, hidden_size))
+
+        #Middle Layers 
+        for i in range (num_layers):
+            self.w.append(nn.Linear(hidden_size, hidden_size))
+
+        #Final Layer
+        self.out = nn.Linear(hidden_size, n_classes)
+
+        
 
     def forward(self, x, **kwargs):
         """
@@ -77,7 +95,16 @@ class FeedforwardNetwork(nn.Module):
         the output logits from x. This will include using various hidden
         layers, pointwise nonlinear functions, and dropout.
         """
-        raise NotImplementedError
+        h = x
+        for layer in self.w:
+            z = layer(h)
+            out = self.dropout(z)
+            out = self.activation(out)
+
+        out = self.out(h)
+        return out
+
+        #raise NotImplementedError
 
 
 def train_batch(X, y, model, optimizer, criterion, **kwargs):
@@ -180,7 +207,7 @@ def main():
         model = FeedforwardNetwork(
             n_classes,
             n_feats,
-            opt.hidden_size,
+            opt.hidden_sizes,
             opt.layers,
             opt.activation,
             opt.dropout
@@ -222,7 +249,7 @@ def main():
     if opt.model == "logistic_regression":
         config = "{}-{}".format(opt.learning_rate, opt.optimizer)
     else:
-        config = "{}-{}-{}-{}-{}-{}-{}".format(opt.learning_rate, opt.hidden_size, opt.layers, opt.dropout, opt.activation, opt.optimizer, opt.batch_size)
+        config = "{}-{}-{}-{}-{}-{}-{}".format(opt.learning_rate, opt.hidden_sizes, opt.layers, opt.dropout, opt.activation, opt.optimizer, opt.batch_size)
 
     plot(epochs, train_mean_losses, ylabel='Loss', name='{}-training-loss-{}'.format(opt.model, config))
     plot(epochs, valid_accs, ylabel='Accuracy', name='{}-validation-accuracy-{}'.format(opt.model, config))
