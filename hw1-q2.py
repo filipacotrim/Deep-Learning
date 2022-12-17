@@ -11,7 +11,6 @@ from matplotlib import pyplot as plt
 
 import utils
 
-
 # Q2.1
 class LogisticRegression(nn.Module): 
     def __init__(self, n_classes, n_features, **kwargs):
@@ -66,24 +65,27 @@ class FeedforwardNetwork(nn.Module):
         attributes that each FeedforwardNetwork instance has. Note that nn
         includes modules for several activation functions and dropout as well.
         """
-        super().__init__()
+        super(FeedforwardNetwork, self).__init__()
+
         self.w = nn.ModuleList()
+        
         self.dropout = nn.Dropout(p=dropout)
 
-
         #First Layer  ---> linear layer with input size n features and utput size hidden_size
-        self.w.append(nn.Linear(n_features, hidden_size))
+        self.w.append(nn.Linear(in_features=n_features, out_features=hidden_size))
+        
         #apply activation to layer
         if activation_type == 'tanh':
             self.activation = nn.Tanh()
         elif activation_type == 'relu':
             self.activation = nn.ReLU()
-
-        #Middle Layers 
-        for i in range (num_layers):
-            self.w.append(nn.Linear(hidden_size, hidden_size))  
-
-        
+            
+        #Middle Layers
+        for i in range(1, num_layers - 1):
+            self.w.append(nn.Linear(in_features=hidden_size, out_features=hidden_size))  
+            
+        #Output layer
+        self.w.append(nn.Linear(in_features=hidden_size, out_features=n_classes))  
 
     def forward(self, x, **kwargs):
         """
@@ -98,12 +100,14 @@ class FeedforwardNetwork(nn.Module):
         out = self.w[0](x)
         out = self.activation(out)
         i = 0
-        for i in range (1,len(self.w)):
+        for i in range (1,len(self.w) - 1):
             out = self.w[i](out)
+            out = self.activation(out)
+        
+        #output layer
+        i = len(self.w) - 1
+        out = self.w[i](out)
         return out
-
-        #raise NotImplementedError
-
 
 def train_batch(X, y, model, optimizer, criterion, **kwargs):
     """
@@ -172,7 +176,7 @@ def main():
     parser.add_argument('-epochs', default=20, type=int,
                         help="""Number of epochs to train for. You should not
                         need to change this value for your plots.""")
-    parser.add_argument('-batch_size', default=1, type=int,
+    parser.add_argument('-batch_size', default=16, type=int,
                         help="Size of training batch.")
     parser.add_argument('-learning_rate', type=float, default=0.01)
     parser.add_argument('-l2_decay', type=float, default=0)

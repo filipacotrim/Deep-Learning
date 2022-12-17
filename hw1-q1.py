@@ -233,8 +233,6 @@ def main():
         # model = MLP(n_classes, n_feats, opt.hidden_size, opt.layers)
         model = MLP(n_classes, n_feats, opt.hidden_size)
 
-    # TODO: Encode labels as one-hot vectors. ???
-
     epochs = np.arange(1, opt.epochs + 1)
     valid_accs = []
     test_accs = []
