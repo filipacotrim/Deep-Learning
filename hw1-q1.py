@@ -88,13 +88,16 @@ class MLP(object):
     # linear models with no changes to the training loop or evaluation code
     # in main().
     def __init__(self, n_classes, n_features, hidden_size):
-        self.W = [np.random.normal(0.1,0.1**2,(hidden_size, n_features)),np.random.normal(0.1,0.1**2,(n_classes, hidden_size))]
-        self.B = [np.zeros(hidden_size),np.zeros(n_classes)]
+        self.W = [np.random.normal(loc=0.1,scale=0.1,size=(hidden_size, n_features)),
+                  np.random.normal(loc=0.1,scale=0.1,size=(n_classes, hidden_size))]
+        self.B = [np.zeros(hidden_size), np.zeros(n_classes)]
 
     def ReLU(self, x):
         return (x > 0) * x 
 
-
+    def derivateReLu(self, x):
+        return (x > 0) * 1
+        
     def compute_label_probabilities(self, output):
         # softmax transformation.
         probs = np.exp(output) / np.sum(np.exp(output))
@@ -118,24 +121,28 @@ class MLP(object):
 
         y_one_hot_vector = np.zeros((10,))
         y_one_hot_vector[y] = 1
-        grad_z = probs - y_one_hot_vector
+        
+        grad_z = probs - y_one_hot_vector # Grad of loss w.r.t. last z
 
         grad_weights = []
         grad_biases = []
 
-        g = self.ReLU(output)
         num_layers = len(self.W)
         for i in range(num_layers-1, -1, -1):
+            # dL/dW = dL/dz . h^T
             h = x if i == 0 else hiddens[i-1]
             grad_weights.append(grad_z[:, None].dot(h[:, None].T))
+            
+            # dL/db = dL/dz
             grad_biases.append(grad_z)
 
+            # dL/dh[i-1] = W[i]^T . dL/dz[i] 
             grad_h = self.W[i].T.dot(grad_z)
-            grad_z = grad_h * np.where(h[0] <= 0,0,1)   
+            # dL /dz = dL/dh * dh/dz
+            grad_z = grad_h * self.derivateReLu(h)
 
         grad_weights.reverse()
         grad_biases.reverse()
-
         return grad_weights, grad_biases
 
     def predict_label(self, output):
@@ -176,7 +183,6 @@ class MLP(object):
             output, hiddens = self.forward(x)
             grad_weights, grad_biases = self.backward(x, y, output, hiddens)
             self.update_parameters(grad_weights, grad_biases, learning_rate)
-
    
 def plot(epochs, valid_accs, test_accs):
     plt.xlabel('Epoch')
@@ -185,7 +191,7 @@ def plot(epochs, valid_accs, test_accs):
     plt.plot(epochs, valid_accs, label='validation')
     plt.plot(epochs, test_accs, label='test')
     plt.legend()
-    plt.show()
+    #plt.show()
     plt.savefig('question_1.2.b.png')
 
 def main():
@@ -247,7 +253,6 @@ def main():
         print(valid_accs, test_accs)
 
     print(model.W)
-    
     # plot
     plot(epochs, valid_accs, test_accs)
 
