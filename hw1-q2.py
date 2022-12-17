@@ -69,21 +69,19 @@ class FeedforwardNetwork(nn.Module):
         super().__init__()
         self.w = nn.ModuleList()
         self.dropout = nn.Dropout(p=dropout)
+
+
+        #First Layer  ---> linear layer with input size n features and utput size hidden_size
+        self.w.append(nn.Linear(n_features, hidden_size))
+        #apply activation to layer
         if activation_type == 'tanh':
             self.activation = nn.Tanh()
         elif activation_type == 'relu':
             self.activation = nn.ReLU()
 
-        self.dropout = nn.Dropout(p=dropout)
-        #First Layer
-        self.w.append(nn.Linear(n_features, hidden_size))
-
         #Middle Layers 
         for i in range (num_layers):
-            self.w.append(nn.Linear(hidden_size, hidden_size))
-
-        #Final Layer
-        self.out = nn.Linear(hidden_size, n_classes)
+            self.w.append(nn.Linear(hidden_size, hidden_size))  
 
         
 
@@ -95,13 +93,13 @@ class FeedforwardNetwork(nn.Module):
         the output logits from x. This will include using various hidden
         layers, pointwise nonlinear functions, and dropout.
         """
-        h = x
-        for layer in self.w:
-            z = layer(h)
-            out = self.dropout(z)
-            out = self.activation(out)
 
-        out = self.out(h)
+        #activation only to first layers 
+        out = self.w[0](x)
+        out = self.activation(out)
+        i = 0
+        for i in range (1,len(self.w)):
+            out = self.w[i](out)
         return out
 
         #raise NotImplementedError
