@@ -25,9 +25,7 @@ class LogisticRegression(nn.Module):
         https://pytorch.org/docs/stable/nn.html
         """
         super(LogisticRegression, self).__init__()
-        self.layer = nn.Linear(in_features=n_features, out_features=n_classes)
-        #nn.init.zeros_(self.weight)
-        self.activation = nn.Softmax(dim=1)
+        self.linear = nn.Linear(in_features=n_features, out_features=n_classes)
         
     def forward(self, x, **kwargs):
         """
@@ -43,9 +41,8 @@ class LogisticRegression(nn.Module):
         forward pass -- this is enough for it to figure out how to do the
         backward pass.
         """
-        X = self.layer(x)
-        X = self.activation(X)
-        return X
+        out = self.linear(x)
+        return out
 
 
 # Q2.2
@@ -66,26 +63,32 @@ class FeedforwardNetwork(nn.Module):
         includes modules for several activation functions and dropout as well.
         """
         super(FeedforwardNetwork, self).__init__()
-
-        self.w = nn.ModuleList()
-        
-        self.dropout = nn.Dropout(p=dropout)
-
-        #First Layer  ---> linear layer with input size n features and utput size hidden_size
-        self.w.append(nn.Linear(in_features=n_features, out_features=hidden_size))
         
         #apply activation to layer
         if activation_type == 'tanh':
             self.activation = nn.Tanh()
         elif activation_type == 'relu':
             self.activation = nn.ReLU()
+
+        self.ff = nn.Sequential()
+        
+        self.dropout = nn.Dropout(p=dropout)
+
+        #First Layer  ---> linear layer with input size n features and utput size hidden_size
+        self.ff.append(nn.Linear(in_features=n_features, out_features=hidden_size))
+        self.ff.append(self.dropout)
+        self.ff.append(self.activation)
             
         #Middle Layers
-        for i in range(1, num_layers - 1):
-            self.w.append(nn.Linear(in_features=hidden_size, out_features=hidden_size))  
+        for i in range(1, num_layers):
+            self.ff.append(nn.Linear(in_features=hidden_size, out_features=hidden_size))  
+            self.ff.append(self.dropout)
+            self.ff.append(self.activation)
             
         #Output layer
-        self.w.append(nn.Linear(in_features=hidden_size, out_features=n_classes))  
+        self.ff.append(nn.Linear(in_features=hidden_size, out_features=n_classes))  
+        
+        print(self.ff)
 
     def forward(self, x, **kwargs):
         """
@@ -96,18 +99,7 @@ class FeedforwardNetwork(nn.Module):
         layers, pointwise nonlinear functions, and dropout.
         """
 
-        #activation only to first layers 
-        out = self.w[0](x)
-        out = self.activation(out)
-        i = 0
-        for i in range (1,len(self.w) - 1):
-            out = self.w[i](out)
-            out = self.activation(out)
-        
-        #output layer
-        i = len(self.w) - 1
-        out = self.w[i](out)
-        return out
+        return self.ff(x)
 
 def train_batch(X, y, model, optimizer, criterion, **kwargs):
     """
@@ -176,7 +168,7 @@ def main():
     parser.add_argument('-epochs', default=20, type=int,
                         help="""Number of epochs to train for. You should not
                         need to change this value for your plots.""")
-    parser.add_argument('-batch_size', default=16, type=int,
+    parser.add_argument('-batch_size', default=1, type=int,
                         help="Size of training batch.")
     parser.add_argument('-learning_rate', type=float, default=0.01)
     parser.add_argument('-l2_decay', type=float, default=0)
