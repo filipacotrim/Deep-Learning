@@ -184,7 +184,7 @@ class MLP(object):
             grad_weights, grad_biases = self.backward(x, y, output, hiddens)
             self.update_parameters(grad_weights, grad_biases, learning_rate)
    
-def plot(epochs, valid_accs, test_accs):
+def plot(epochs, valid_accs, test_accs, model):
     plt.xlabel('Epoch')
     plt.ylabel('Accuracy')
     plt.xticks(epochs)
@@ -192,7 +192,12 @@ def plot(epochs, valid_accs, test_accs):
     plt.plot(epochs, test_accs, label='test')
     plt.legend()
     #plt.show()
-    plt.savefig('question_1.2.b.png')
+    if model == 'perceptron':
+        plt.savefig('results_1/question_1.1.a.png')
+    elif model == 'logistic_regression':
+        plt.savefig('results_1/question_1.1.b.png')
+    else:
+        plt.savefig('results_1/question_1.2.b.png')
 
 def main():
     parser = argparse.ArgumentParser()
@@ -250,9 +255,10 @@ def main():
         test_accs.append(model.evaluate(test_X, test_y))
         print(valid_accs, test_accs)
 
-    print(model.W)
+    print("Final validation accuracy: ", valid_accs[-1])
+    print("Final testing accuracy: ", test_accs[-1])
     # plot
-    plot(epochs, valid_accs, test_accs)
+    plot(epochs, valid_accs, test_accs, opt.model)
 
 
 if __name__ == '__main__':

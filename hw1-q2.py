@@ -76,19 +76,17 @@ class FeedforwardNetwork(nn.Module):
 
         #First Layer  ---> linear layer with input size n features and utput size hidden_size
         self.ff.append(nn.Linear(in_features=n_features, out_features=hidden_size))
-        self.ff.append(self.dropout)
         self.ff.append(self.activation)
+        self.ff.append(self.dropout)
             
         #Middle Layers
         for i in range(1, num_layers):
             self.ff.append(nn.Linear(in_features=hidden_size, out_features=hidden_size))  
-            self.ff.append(self.dropout)
             self.ff.append(self.activation)
+            self.ff.append(self.dropout)
             
         #Output layer
         self.ff.append(nn.Linear(in_features=hidden_size, out_features=n_classes))  
-        
-        print(self.ff)
 
     def forward(self, x, **kwargs):
         """

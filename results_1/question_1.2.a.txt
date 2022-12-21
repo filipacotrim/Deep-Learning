@@ -1,0 +1,25 @@
+# ----------------------------------------------------------- #
+# Justify briefly why multi-layer perceptrons with non-linear #
+# activations are more expressive than the simple perceptron  #
+# implemented above, and what kind of limitations they        #
+# overcome for this particular task. Is this still the case   #
+# if the activation function of the multi-layer perceptron is #
+# linear?                                                     #
+# ----------------------------------------------------------- #
+
+When we want to define a decision boundary between x classes 
+(say, 2), we compute the equation of the hyperplane that separates
+them. However, if the problem at hands isn't linearly separable 
+(such hyperplane doesn't exist, like in the XOR problem), then 
+we need to transform the data in a way that we can compute a 
+separating hyperplane: that's what activation functions do.
+
+Rotations, translations, scalings and squeuings all preserve 
+straight lines: these are linear transformations. Functions like
+tanh bend straight lines, so they are non-linear transformations.
+Neural networks compose linear and non-linear transformations, 
+on each hidden layer, and that's how they classify many problems.
+
+Any decision boundary can be represented with alternating linear
+and non-linear transformations, as long as we iterate enough times
+and in a high-enough dimension. That's what neural networks do.
