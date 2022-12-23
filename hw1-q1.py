@@ -191,13 +191,13 @@ def plot(epochs, valid_accs, test_accs, model):
     plt.plot(epochs, valid_accs, label='validation')
     plt.plot(epochs, test_accs, label='test')
     plt.legend()
-    #plt.show()
-    if model == 'perceptron':
-        plt.savefig('results_1/question_1.1.a.png')
-    elif model == 'logistic_regression':
-        plt.savefig('results_1/question_1.1.b.png')
-    else:
-        plt.savefig('results_1/question_1.2.b.png')
+    plt.show()
+    # if model == 'perceptron':
+    #     plt.savefig('results_1/question_1.1.a.png')
+    # elif model == 'logistic_regression':
+    #     plt.savefig('results_1/question_1.1.b.png')
+    # else:
+    #     plt.savefig('results_1/question_1.2.b.png')
 
 def main():
     parser = argparse.ArgumentParser()
