@@ -28,18 +28,17 @@ class CNN(nn.Module):
         super(CNN, self).__init__()
 
         #conv1 with 8 output channels, kernel of size 5*5, stride of 1 
-        self.conv1 = nn.Conv2d(1, 8, 5, padding=1)
+        self.conv1 = nn.Conv2d(1, 8, 5, padding=2)
         #conv2 with 16 output channels, kernel of size 3x3, stride of 1 
-        self.conv2 = nn.Conv2d(8, 16, 3)
+        self.conv2 = nn.Conv2d(8, 16, 3, padding = 0)
         # input features = #output_channels x output_width x output_height
         #output_width = (input_width + padding_right + padding_left - kernel_width) / Stride + 1
         #output_height = (input_height + padding_height_top + padding_height_bottom - kernel_height) / Stride + 1
         # TODO: calcular bem input features 
-        self.fc1 = nn.Linear(16*6*6, 600)
+        self.fc1 = nn.Linear(195, 600)
         self.dropout = nn.Dropout2d(p=dropout_prob)
         self.fc2 = nn.Linear(600, 120)
         self.fc3 = nn.Linear(120, 10)    
-        self.log_softmax = nn.LogSoftmax()
 
                 
     def forward(self, x):
@@ -61,18 +60,11 @@ class CNN(nn.Module):
         # slide input through first layers
         x = x.unsqueeze(0)
         x = F.relu(F.max_pool2d(self.conv1(x), 2))
-        print(x.shape)
 
         # 3d: [batch_size, channels, num_features (aka: H * W)]
         # slide input through second layers
-        x = self.conv2(x)
-        print("input size: ",x.shape)
+        x = F.relu(F.max_pool2d(self.conv2(x), 2))
 
-        x = F.max_pool2d(x,2)
-        print("output size: ",x.shape)
-
-
-        x = F.relu(x)
         #x = F.relu(F.max_pool2d(self.conv2(x), 2))
         #flatten the output from previous layer and slide it through only set of fully connected - relu layer
         x = torch.flatten(x, 1) 
@@ -81,7 +73,7 @@ class CNN(nn.Module):
         print("last:",x.shape)
         x = self.dropout(F.relu(self.fc1(x)))
 
-        x =  self.log_softmax(self.fc3(F.relu(self.fc2(x))))
+        x =  F.log_softmax(self.fc3(F.relu(self.fc2(x))), dim=1)
 
         return x
 
