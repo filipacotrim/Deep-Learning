@@ -30,13 +30,16 @@ class CNN(nn.Module):
         #conv1 with 8 output channels, kernel of size 5*5, stride of 1 
         #padding: (2 x Padding + N - Kernel)/Stride + 1 = 28 <=> Padding = 2
         self.conv1 = nn.Conv2d(1, 8, 5, padding=2)
+        #self.batch1 = nn.BatchNorm2d(16)
+
         #conv2 with 16 output channels, kernel of size 3x3, stride of 1 
         self.conv2 = nn.Conv2d(8, 16, 3, padding = 0)
+
         # input features = #output_channels x output_width x output_height
         #output_width = (input_width + padding_right + padding_left - kernel_width) / Stride + 1
         #output_height = (input_height + padding_height_top + padding_height_bottom - kernel_height) / Stride + 1
         # TODO: calcular bem input features 
-        self.fc1 = nn.Linear(195, 600)
+        self.fc1 = nn.Linear(195*1*16, 600)
         self.dropout = nn.Dropout2d(p=dropout_prob)
         self.fc2 = nn.Linear(600, 120)
         self.fc3 = nn.Linear(120, 10)    
@@ -58,24 +61,36 @@ class CNN(nn.Module):
         forward pass -- this is enough for it to figure out how to do the
         backward pass.
         """
-        # slide input through first layers
+        # 3d: [batch_size, channels, num_features (aka: H * W)]
+        # 4d: [batch_size, channels, height, width]  --->  x.shape = [1, 1, 8, 784]
         x = x.unsqueeze(0)
         x = F.relu(F.max_pool2d(self.conv1(x), 2))
+        # CONV:
+        # (784-5+2*2)/1 + 1 = 728   
+        # (8-5+2*2)/1 + 1 = 8  
+        #   ---> x.shape = [1, 8, 8, 784]
+        # POOL:
+        # (784-2+2*0)/2 + 1 = 392   
+        # (8-2+2*0)/2 + 1 = 4 
+        #   ---> x.shape = [1, 8, 4, 392]        
 
-        # 3d: [batch_size, channels, num_features (aka: H * W)]
-        # slide input through second layers
         x = F.relu(F.max_pool2d(self.conv2(x), 2))
+        # CONV:
+        # (392-3+2*0)/1 + 1 = 390   
+        # (4-3+2*0)/1 + 1 = 2 
+        #   ---> x.shape = [1, 16, 2, 390] 
+        # POOL:
+        # (390-2+2*0)/2 + 1 = 195   
+        # (2-2+2*0)/2 + 1 = 1 
+        #   ---> x.shape = [1, 16, 1, 195] 
 
-        #x = F.relu(F.max_pool2d(self.conv2(x), 2))
+
         #flatten the output from previous layer and slide it through only set of fully connected - relu layer
         x = torch.flatten(x, 1) 
-        x = x.view(x.size(0), -1)
-        #o qq o view faz (lab8)???
-        print("last:",x.shape)
-        x = self.dropout(F.relu(self.fc1(x)))
-
+        x = x.view(-1, 195*1*16)        
+        x = self.fc1(x)
+        x = self.dropout(F.relu(x))
         x =  F.log_softmax(self.fc3(F.relu(self.fc2(x))), dim=1)
-
         return x
 
 def train_batch(X, y, model, optimizer, criterion, **kwargs):
@@ -101,6 +116,7 @@ def train_batch(X, y, model, optimizer, criterion, **kwargs):
     # initializing
     optimizer.zero_grad()
 
+    #print("scores: ",scores.shape, "y: ", y.shape)
     #computing the loss 
     loss = criterion(scores, y)
     
@@ -218,6 +234,7 @@ def main():
             loss = train_batch(
                 X_batch, y_batch, model, optimizer, criterion)
             train_losses.append(loss)
+            print(loss)
 
         mean_loss = torch.tensor(train_losses).mean().item()
         print('Training loss: %.4f' % (mean_loss))
