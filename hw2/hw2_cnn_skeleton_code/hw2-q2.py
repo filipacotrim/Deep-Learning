@@ -28,6 +28,7 @@ class CNN(nn.Module):
         super(CNN, self).__init__()
 
         #conv1 with 8 output channels, kernel of size 5*5, stride of 1 
+        #padding: (2 x Padding + N - Kernel)/Stride + 1 = 28 <=> Padding = 2
         self.conv1 = nn.Conv2d(1, 8, 5, padding=2)
         #conv2 with 16 output channels, kernel of size 3x3, stride of 1 
         self.conv2 = nn.Conv2d(8, 16, 3, padding = 0)
@@ -68,7 +69,7 @@ class CNN(nn.Module):
         #x = F.relu(F.max_pool2d(self.conv2(x), 2))
         #flatten the output from previous layer and slide it through only set of fully connected - relu layer
         x = torch.flatten(x, 1) 
-
+        x = x.view(x.size(0), -1)
         #o qq o view faz (lab8)???
         print("last:",x.shape)
         x = self.dropout(F.relu(self.fc1(x)))
