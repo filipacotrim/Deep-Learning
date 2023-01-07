@@ -26,9 +26,22 @@ class CNN(nn.Module):
         https://pytorch.org/docs/stable/nn.html
         """
         super(CNN, self).__init__()
-        
-        # Implement me!
-        
+
+        #conv1 with 8 output channels, kernel of size 5*5, stride of 1 
+        self.conv1 = nn.Conv2d(1, 8, 5, padding=1)
+        #conv2 with 16 output channels, kernel of size 3x3, stride of 1 
+        self.conv2 = nn.Conv2d(8, 16, 3)
+        # input features = #output_channels x output_width x output_height
+        #output_width = (input_width + padding_right + padding_left - kernel_width) / Stride + 1
+        #output_height = (input_height + padding_height_top + padding_height_bottom - kernel_height) / Stride + 1
+        # TODO: calcular bem input features 
+        self.fc1 = nn.Linear(16*6*6, 600)
+        self.dropout = nn.Dropout2d(p=dropout_prob)
+        self.fc2 = nn.Linear(600, 120)
+        self.fc3 = nn.Linear(120, 10)    
+        self.log_softmax = nn.LogSoftmax()
+
+                
     def forward(self, x):
         """
         x (batch_size x n_channels x height x width): a batch of training 
@@ -45,7 +58,32 @@ class CNN(nn.Module):
         forward pass -- this is enough for it to figure out how to do the
         backward pass.
         """
-        raise NotImplementedError
+        # slide input through first layers
+        x = x.unsqueeze(0)
+        x = F.relu(F.max_pool2d(self.conv1(x), 2))
+        print(x.shape)
+
+        # 3d: [batch_size, channels, num_features (aka: H * W)]
+        # slide input through second layers
+        x = self.conv2(x)
+        print("input size: ",x.shape)
+
+        x = F.max_pool2d(x,2)
+        print("output size: ",x.shape)
+
+
+        x = F.relu(x)
+        #x = F.relu(F.max_pool2d(self.conv2(x), 2))
+        #flatten the output from previous layer and slide it through only set of fully connected - relu layer
+        x = torch.flatten(x, 1) 
+
+        #o qq o view faz (lab8)???
+        print("last:",x.shape)
+        x = self.dropout(F.relu(self.fc1(x)))
+
+        x =  self.log_softmax(self.fc3(F.relu(self.fc2(x))))
+
+        return x
 
 def train_batch(X, y, model, optimizer, criterion, **kwargs):
     """
@@ -65,7 +103,21 @@ def train_batch(X, y, model, optimizer, criterion, **kwargs):
     This function should return the loss (tip: call loss.item()) to get the
     loss as a numerical value that is not part of the computation graph.
     """
-    raise NotImplementedError
+    scores = model(X)
+         
+    # initializing
+    optimizer.zero_grad()
+
+    #computing the loss 
+    loss = criterion(scores, y)
+    
+    # compute the gradients
+    loss.backward()
+    
+    # updating the weights
+    optimizer.step()
+   
+    return loss.item()
 
 def predict(model, X):
     """X (n_examples x n_features)"""
