@@ -38,8 +38,7 @@ class CNN(nn.Module):
         # input features = #output_channels x output_width x output_height
         #output_width = (input_width + padding_right + padding_left - kernel_width) / Stride + 1
         #output_height = (input_height + padding_height_top + padding_height_bottom - kernel_height) / Stride + 1
-        # TODO: calcular bem input features 
-        self.fc1 = nn.Linear(195*1*16, 600)
+        self.fc1 = nn.Linear(6*6*16, 600)
         self.dropout = nn.Dropout2d(p=dropout_prob)
         self.fc2 = nn.Linear(600, 120)
         self.fc3 = nn.Linear(120, 10)    
@@ -63,34 +62,34 @@ class CNN(nn.Module):
         """
         # 3d: [batch_size, channels, num_features (aka: H * W)]
         # 4d: [batch_size, channels, height, width]  --->  x.shape = [1, 1, 8, 784]
-        x = x.unsqueeze(0)
+        x = x.view(x.shape[0], 1, 28, 28)    
         x = F.relu(F.max_pool2d(self.conv1(x), 2))
         # CONV:
-        # (784-5+2*2)/1 + 1 = 728   
-        # (8-5+2*2)/1 + 1 = 8  
-        #   ---> x.shape = [1, 8, 8, 784]
+        # (28-5+2*2)/1 + 1 = 28 
+        # (28-5+2*2)/1 + 1 = 28  
+        #   ---> x.shape = [N, 8, 28, 28]
         # POOL:
-        # (784-2+2*0)/2 + 1 = 392   
-        # (8-2+2*0)/2 + 1 = 4 
-        #   ---> x.shape = [1, 8, 4, 392]        
+        # (28-2+2*0)/2 + 1 = 14   
+        # (28-2+2*0)/2 + 1 = 14 
+        #   ---> x.shape = [N, 8, 14, 14]        
 
         x = F.relu(F.max_pool2d(self.conv2(x), 2))
         # CONV:
-        # (392-3+2*0)/1 + 1 = 390   
-        # (4-3+2*0)/1 + 1 = 2 
-        #   ---> x.shape = [1, 16, 2, 390] 
+        # (14-3+2*0)/1 + 1 = 12 
+        # (14-3+2*0)/1 + 1 = 12 
+        #   ---> x.shape = [N, 16, 12, 12] 
         # POOL:
-        # (390-2+2*0)/2 + 1 = 195   
-        # (2-2+2*0)/2 + 1 = 1 
-        #   ---> x.shape = [1, 16, 1, 195] 
-
+        # (12-2+2*0)/2 + 1 = 6 
+        # (12-2+2*0)/2 + 1 = 6
+        #   ---> x.shape = [N, 16, 6, 6] 
 
         #flatten the output from previous layer and slide it through only set of fully connected - relu layer
         x = torch.flatten(x, 1) 
-        x = x.view(-1, 195*1*16)        
+        x = x.view(-1, 6*6*16)        
         x = self.fc1(x)
         x = self.dropout(F.relu(x))
         x =  F.log_softmax(self.fc3(F.relu(self.fc2(x))), dim=1)
+
         return x
 
 def train_batch(X, y, model, optimizer, criterion, **kwargs):
