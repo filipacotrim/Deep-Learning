@@ -30,7 +30,7 @@ class CNN(nn.Module):
         #conv1 with 8 output channels, kernel of size 5*5, stride of 1 
         #padding: (2 x Padding + N - Kernel)/Stride + 1 = 28 <=> Padding = 2
         self.conv1 = nn.Conv2d(1, 8, 5, padding=2)
-        #self.batch1 = nn.BatchNorm2d(16)
+        self.max_pool = nn.MaxPool2d(2,2)
 
         #conv2 with 16 output channels, kernel of size 3x3, stride of 1 
         self.conv2 = nn.Conv2d(8, 16, 3, padding = 0)
@@ -63,7 +63,7 @@ class CNN(nn.Module):
         # 3d: [batch_size, channels, num_features (aka: H * W)]
         # 4d: [batch_size, channels, height, width]  --->  x.shape = [1, 1, 8, 784]
         x = x.view(x.shape[0], 1, 28, 28)    
-        x = F.relu(F.max_pool2d(self.conv1(x), 2))
+        x = F.relu(self.max_pool(self.conv1(x)))
         # CONV:
         # (28-5+2*2)/1 + 1 = 28 
         # (28-5+2*2)/1 + 1 = 28  
@@ -73,7 +73,7 @@ class CNN(nn.Module):
         # (28-2+2*0)/2 + 1 = 14 
         #   ---> x.shape = [N, 8, 14, 14]        
 
-        x = F.relu(F.max_pool2d(self.conv2(x), 2))
+        x = F.relu(self.max_pool(self.conv2(x)))
         # CONV:
         # (14-3+2*0)/1 + 1 = 12 
         # (14-3+2*0)/1 + 1 = 12 
