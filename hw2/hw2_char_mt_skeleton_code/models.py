@@ -26,11 +26,11 @@ class Attention(nn.Module):
     def forward(
         self,
         query,
-        encoder_outputs,
+        encoder_enc_output,
         src_lengths,
     ):
         # query: (batch_size, 1, hidden_dim)
-        # encoder_outputs: (batch_size, max_src_len, hidden_dim)
+        # encoder_enc_output: (batch_size, max_src_len, hidden_dim)
         # src_lengths: (batch_size)
         # we will need to use this mask to assign float("-inf") in the attention scores
         # of the padding tokens (such that the output of the softmax is 0 in those positions)
@@ -46,14 +46,27 @@ class Attention(nn.Module):
         # - Use torch.softmax to do the softmax
         # - Use torch.tanh to do the tanh
         # - Use torch.masked_fill to do the masking of the padding tokens
-        #############################################
-        raise NotImplementedError
-        #############################################
-        # END OF YOUR CODE
-        #############################################
+
+        linear_encoding = self.linear_out(encoder_enc_output)
+
+        linear_decoding = self.linear_in(query)
+
+
+        activated = self.relu(linear_encoding + linear_decoding.unsqueeze(1))
+
+        full_att_vec = self.full_att(activated)
+
+        att_weights = self.softmax(full_att_vec)
+
+        att_weights = att_weights.unsqueeze(1).squeeze(3)
+
+        attn_out = torch.bmm(att_weights, encoder_enc_output)
+        attn_out = attn_out.squeeze(1)
+
+
         # attn_out: (batch_size, 1, hidden_size)
-        # TODO: Uncomment the following line when you implement the forward pass
-        # return attn_out
+        print(attn_out.shape)
+        return attn_out
 
     def sequence_mask(self, lengths):
         """
@@ -99,6 +112,7 @@ class Encoder(nn.Module):
         src,
         lengths,
     ):
+
         # src: (batch_size, max_src_len)
         # lengths: (batch_size)
         #############################################
@@ -109,16 +123,21 @@ class Encoder(nn.Module):
         # - Use torch.nn.utils.rnn.pad_packed_sequence to unpack the packed sequences
         #   (after passing them to the LSTM)
         #############################################
-        raise NotImplementedError
-        #############################################
-        # END OF YOUR CODE
-        #############################################
-        # enc_output: (batch_size, max_src_len, hidden_size)
-        # final_hidden: tuple with 2 tensors
-        # each tensor is (num_layers * num_directions, batch_size, hidden_size)
-        # TODO: Uncomment the following line when you implement the forward pass
-        # return enc_output, final_hidden
 
+        # Convert word indexes to embeddings
+        embedded = self.embedding(src)
+        # Pack padded batch of sequences for RNN module
+        packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, lengths, batch_first=True, enforce_sorted=False)
+        # Forward pass through 
+        enc_output, hidden = self.lstm(packed)
+        # Unpack padding
+        enc_output, _ = torch.nn.utils.rnn.pad_packed_sequence(enc_output)
+        # Sum bidirectional reshape hidden
+        enc_output = enc_output[:, :, :self.hidden_size] + enc_output[:, : ,self.hidden_size:]
+        # Return output and final hidden state
+        #print("enc_output", enc_output.shape)
+        #print("hidden: ", hidden[0].shape)
+        return enc_output, hidden
 
 class Decoder(nn.Module):
     def __init__(
@@ -151,15 +170,15 @@ class Decoder(nn.Module):
         self,
         tgt,
         dec_state,
-        encoder_outputs,
+        encoder_enc_output,
         src_lengths,
     ):
         # tgt: (batch_size, max_tgt_len)
         # dec_state: tuple with 2 tensors
         # each tensor is (num_layers * num_directions, batch_size, hidden_size)
-        # encoder_outputs: (batch_size, max_src_len, hidden_size)
+        # encoder_enc_output: (batch_size, max_src_len, hidden_size)
         # src_lengths: (batch_size)
-        # bidirectional encoder outputs are concatenated, so we may need to
+        # bidirectional encoder enc_output are concatenated, so we may need to
         # reshape the decoder states to be of size (num_layers, batch_size, 2*hidden_size)
         # if they are of size (num_layers*num_directions, batch_size, hidden_size)
         if dec_state[0].shape[0] == 2:
@@ -176,19 +195,30 @@ class Decoder(nn.Module):
         # if self.attn is not None:
         #     output = self.attn(
         #         output,
-        #         encoder_outputs,
+        #         encoder_enc_output,
         #         src_lengths,
         #     )
-        #############################################
-        raise NotImplementedError
-        #############################################
-        # END OF YOUR CODE
-        #############################################
-        # outputs: (batch_size, max_tgt_len, hidden_size)
+        emb = self.embedding(tgt)
+        enc_output, hidden_n = self.lstm(emb)
+        #print(enc_output.shape)
+
+        # apply attention between source context and query from
+        # decoder RNN
+        if self.attn is not None:
+             enc_output = self.attn(
+                 enc_output,
+                 encoder_enc_output,
+                 src_lengths,
+             )
+
+        #enc_output = output.contiguous().view(-1, self.lstm.hidden_size)
+        enc_output = enc_output[:, :-1,:]
+        # enc_output: (batch_size, max_tgt_len, hidden_size)
         # dec_state: tuple with 2 tensors
         # each tensor is (num_layers, batch_size, hidden_size)
-        # TODO: Uncomment the following line when you implement the forward pass
-        # return outputs, dec_state
+        #print("enc_output decoder", enc_output.shape)
+        #print("dec_state decoder", dec_state[0].shape)
+        return enc_output, dec_state
 
 
 class Seq2Seq(nn.Module):
@@ -214,13 +244,13 @@ class Seq2Seq(nn.Module):
         dec_hidden=None,
     ):
 
-        encoder_outputs, final_enc_state = self.encoder(src, src_lengths)
+        encoder_enc_output, final_enc_state = self.encoder(src, src_lengths)
 
         if dec_hidden is None:
             dec_hidden = final_enc_state
 
         output, dec_hidden = self.decoder(
-            tgt, dec_hidden, encoder_outputs, src_lengths
+            tgt, dec_hidden, encoder_enc_output, src_lengths
         )
 
         return self.generator(output), dec_hidden
