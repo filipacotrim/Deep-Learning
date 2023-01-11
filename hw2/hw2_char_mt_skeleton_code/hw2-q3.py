@@ -103,6 +103,8 @@ def test(model, data_iter, data_type, examples_idx=None):
                 dtype=torch.long,
                 device=device,
             )
+            
+            #print("initial tgt: ", tgt_pred.shape)
 
             i = 1
             stop = False

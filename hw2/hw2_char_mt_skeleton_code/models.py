@@ -119,10 +119,9 @@ class Encoder(nn.Module):
         lengths,
     ):
         '''
-        src: (batch_size, max_src_len) source sentence
-        lengths: (batch_size) (src != PAD_IDX).sum(1)
+        src: (batch_size=64, max_src_len=19) source sentence
+        lengths: (batch_size=64) (src != PAD_IDX).sum(1)
         '''
-
         # Convert word indexes to embeddings
         embedded = self.embedding(src)
         
@@ -131,22 +130,23 @@ class Encoder(nn.Module):
         packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, lengths, batch_first=True, enforce_sorted=False)
         
         # Forward pass through 
-        # 1. enc_output: (batch_size, max_src_len, hidden_size)
-        # 2. final_hidden: tuple with 2 tensors
-        #    each tensor is (num_layers * num_directions, batch_size, hidden_size)
+        # 1. enc_output: (batch_size=64, max_src_len=19, D=2 * hidden_size=64)
+        # 2. final_hidden: tuple with 2 tensors (h_n and c_n)
+        #    each tensor is (num_layers=1 * num_directions (D=2), batch_size=64, hidden_size=64)
         
         # output, (hn, cn) = rnn(input, (h0, c0))
-        enc_output, hidden = self.lstm(packed)
+        output, final_hidden = self.lstm(packed)
         
         # Unpack padding
         # unpack packed sequences after having passed them to the LSTM
-        enc_output, _ = torch.nn.utils.rnn.pad_packed_sequence(enc_output)
+        enc_output, _ = torch.nn.utils.rnn.pad_packed_sequence(output, batch_first=True)
         
         # Sum bidirectional reshape hidden
+        # enc_output: (batch_size=64, max_src_len=19, hidden_size=64)
         enc_output = enc_output[:, :, :self.hidden_size] + enc_output[:, : ,self.hidden_size:]
         
         # Return output and final hidden state
-        return enc_output, hidden
+        return enc_output, final_hidden
 
 class Decoder(nn.Module):
     def __init__(
@@ -190,17 +190,48 @@ class Decoder(nn.Module):
         src_lengths,
     ):
         '''
-        tgt: (batch_size, max_tgt_len) tgt_pred previous predicted element
-        dec_state: tuple with 2 tensors; each tensor is (num_layers * num_directions, batch_size, hidden_size); final_enc_state (2nd output of encoder)
-        encoder_enc_output: (batch_size, max_src_len, hidden_size); encoder_outputs (1st output of encoder)
-        src_lengths: (batch_size); (src != PAD_IDX).sum(1)
+        tgt: 
+            tgt_pred previous predicted element
+            size: (batch_size=64, max_tgt_len=21) 
+        
+        dec_state: 
+            final_enc_state (final_hidden of encoder)
+            tuple with 2 tensors 
+            each tensor has size: (num_layers=1 * num_directions (D=2), batch_size=64, hidden_size=64)
+            
+        encoder_enc_output: 
+            encoder_outputs (enc_output of encoder)
+            size: (batch_size=64, max_src_len=19, hidden_size=128); 
+        
+        src_lengths: 
+            (src != PAD_IDX).sum(1)
+            size: (batch_size) 
         '''
+        if tgt.size(1) > 1:
+            tgt = tgt[:, :-1]
+        
         # bidirectional encoder enc_output are concatenated, so we may need to
         # reshape the decoder states to be of size (num_layers, batch_size, 2*hidden_size)
         # if they are of size (num_layers*num_directions, batch_size, hidden_size)
+        
+        # dec_state[0]: final hidden state
+        # dec_state[1]: final cell state
         if dec_state[0].shape[0] == 2:
             dec_state = reshape_state(dec_state)
 
+        # # # # # # # # # #
+        
+        # we do the embedding of the current word
+        embedded = self.embedding(tgt)
+        
+        # we do our calculations
+        outputs, dec_state = self.lstm(embedded, dec_state)
+        
+        # the output has dropout applied
+        outputs = self.dropout(outputs)
+                
+        # ... and we'll use the resulting decoder state in the next timestep
+        
         #############################################
         # TODO: Implement the forward pass of the decoder
         # Hints:
@@ -215,27 +246,30 @@ class Decoder(nn.Module):
         #         encoder_enc_output,
         #         src_lengths,
         #     )
-        emb = self.embedding(tgt)
-        enc_output, hidden_n = self.lstm(emb)
+        # print("tgt: ", tgt.shape)
+        # emb = self.embedding(tgt)
+        # print("emb: ", emb.shape)
+        # enc_output, hidden_n = self.lstm(emb)
         #print(enc_output.shape)
 
         # apply attention between source context and query from
         # decoder RNN
-        if self.attn is not None:
-             enc_output = self.attn(
-                 enc_output,
-                 encoder_enc_output,
-                 src_lengths,
-             )
+        # if self.attn is not None:
+        #      enc_output = self.attn(
+        #          enc_output,
+        #          encoder_enc_output,
+        #          src_lengths,
+        #      )
 
         #enc_output = output.contiguous().view(-1, self.lstm.hidden_size)
-        enc_output = enc_output[:, :-1,:]
-        # enc_output: (batch_size, max_tgt_len, hidden_size)
+        #enc_output = enc_output[:, :-1,:]
+        
+        # outputs: (batch_size=64, max_tgt_len=21, hidden_size=128)
         # dec_state: tuple with 2 tensors
-        # each tensor is (num_layers, batch_size, hidden_size)
-        #print("enc_output decoder", enc_output.shape)
-        #print("dec_state decoder", dec_state[0].shape)
-        return enc_output, dec_state
+        # each tensor is (num_layers=1, batch_size=64, hidden_size=128)
+        # print("outputs: ", outputs.shape)
+        # print("dec_state[0]: ", dec_state[0].shape)
+        return outputs, dec_state
 
 
 class Seq2Seq(nn.Module):
