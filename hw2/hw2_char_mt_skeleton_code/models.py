@@ -90,6 +90,12 @@ class Encoder(nn.Module):
         padding_idx,
         dropout,
     ):
+        '''
+        src_vocab_size: train_dataset.input_lang.n_words
+        hidden_size: opt.hidden_size
+        padding_idx: PAD_IDX
+        dropout: opt.dropout
+        '''
         super(Encoder, self).__init__()
         self.hidden_size = hidden_size // 2
         self.dropout = dropout
@@ -112,31 +118,34 @@ class Encoder(nn.Module):
         src,
         lengths,
     ):
-
-        # src: (batch_size, max_src_len)
-        # lengths: (batch_size)
-        #############################################
-        # TODO: Implement the forward pass of the encoder
-        # Hints:
-        # - Use torch.nn.utils.rnn.pack_padded_sequence to pack the padded sequences
-        #   (before passing them to the LSTM)
-        # - Use torch.nn.utils.rnn.pad_packed_sequence to unpack the packed sequences
-        #   (after passing them to the LSTM)
-        #############################################
+        '''
+        src: (batch_size, max_src_len) source sentence
+        lengths: (batch_size) (src != PAD_IDX).sum(1)
+        '''
 
         # Convert word indexes to embeddings
         embedded = self.embedding(src)
+        
         # Pack padded batch of sequences for RNN module
+        # pack padded sequences before passing them to the LSTM
         packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, lengths, batch_first=True, enforce_sorted=False)
+        
         # Forward pass through 
+        # 1. enc_output: (batch_size, max_src_len, hidden_size)
+        # 2. final_hidden: tuple with 2 tensors
+        #    each tensor is (num_layers * num_directions, batch_size, hidden_size)
+        
+        # output, (hn, cn) = rnn(input, (h0, c0))
         enc_output, hidden = self.lstm(packed)
+        
         # Unpack padding
+        # unpack packed sequences after having passed them to the LSTM
         enc_output, _ = torch.nn.utils.rnn.pad_packed_sequence(enc_output)
+        
         # Sum bidirectional reshape hidden
         enc_output = enc_output[:, :, :self.hidden_size] + enc_output[:, : ,self.hidden_size:]
+        
         # Return output and final hidden state
-        #print("enc_output", enc_output.shape)
-        #print("hidden: ", hidden[0].shape)
         return enc_output, hidden
 
 class Decoder(nn.Module):
@@ -148,6 +157,13 @@ class Decoder(nn.Module):
         padding_idx,
         dropout,
     ):
+        '''
+        hidden_size: opt.hidden_size
+        tgt_vocab_size: train_dataset.output_lang.n_words
+        attn: Attention(opt.hidden_size) or None
+        padding_idx: PAD_IDX
+        dropout: opt.dropout
+        '''
         super(Decoder, self).__init__()
         self.hidden_size = hidden_size
         self.tgt_vocab_size = tgt_vocab_size
@@ -173,11 +189,12 @@ class Decoder(nn.Module):
         encoder_enc_output,
         src_lengths,
     ):
-        # tgt: (batch_size, max_tgt_len)
-        # dec_state: tuple with 2 tensors
-        # each tensor is (num_layers * num_directions, batch_size, hidden_size)
-        # encoder_enc_output: (batch_size, max_src_len, hidden_size)
-        # src_lengths: (batch_size)
+        '''
+        tgt: (batch_size, max_tgt_len) tgt_pred previous predicted element
+        dec_state: tuple with 2 tensors; each tensor is (num_layers * num_directions, batch_size, hidden_size); final_enc_state (2nd output of encoder)
+        encoder_enc_output: (batch_size, max_src_len, hidden_size); encoder_outputs (1st output of encoder)
+        src_lengths: (batch_size); (src != PAD_IDX).sum(1)
+        '''
         # bidirectional encoder enc_output are concatenated, so we may need to
         # reshape the decoder states to be of size (num_layers, batch_size, 2*hidden_size)
         # if they are of size (num_layers*num_directions, batch_size, hidden_size)
