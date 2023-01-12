@@ -124,6 +124,7 @@ class Encoder(nn.Module):
         '''
         # Convert word indexes to embeddings
         embedded = self.embedding(src)
+        embedded = self.dropout(embedded)
         
         # Pack padded batch of sequences for RNN module
         # pack padded sequences before passing them to the LSTM
@@ -144,6 +145,7 @@ class Encoder(nn.Module):
         # Sum bidirectional reshape hidden
         # enc_output: (batch_size=64, max_src_len=19, hidden_size=64)
         enc_output = enc_output[:, :, :self.hidden_size] + enc_output[:, : ,self.hidden_size:]
+        enc_output = self.dropout(enc_output)
         
         # Return output and final hidden state
         return enc_output, final_hidden
@@ -223,6 +225,7 @@ class Decoder(nn.Module):
         
         # we do the embedding of the current word
         embedded = self.embedding(tgt)
+        embedded = self.dropout(embedded)
         
         # we do our calculations
         outputs, dec_state = self.lstm(embedded, dec_state)
@@ -231,38 +234,6 @@ class Decoder(nn.Module):
         outputs = self.dropout(outputs)
                 
         # ... and we'll use the resulting decoder state in the next timestep
-        
-        #############################################
-        # TODO: Implement the forward pass of the decoder
-        # Hints:
-        # - the input to the decoder is the previous target token,
-        #   and the output is the next target token
-        # - New token representations should be generated one at a time, given
-        #   the previous token representation and the previous decoder state
-        # - Add this somewhere in the decoder loop when you implement the attention mechanism in 3.2:
-        # if self.attn is not None:
-        #     output = self.attn(
-        #         output,
-        #         encoder_enc_output,
-        #         src_lengths,
-        #     )
-        # print("tgt: ", tgt.shape)
-        # emb = self.embedding(tgt)
-        # print("emb: ", emb.shape)
-        # enc_output, hidden_n = self.lstm(emb)
-        #print(enc_output.shape)
-
-        # apply attention between source context and query from
-        # decoder RNN
-        # if self.attn is not None:
-        #      enc_output = self.attn(
-        #          enc_output,
-        #          encoder_enc_output,
-        #          src_lengths,
-        #      )
-
-        #enc_output = output.contiguous().view(-1, self.lstm.hidden_size)
-        #enc_output = enc_output[:, :-1,:]
         
         # outputs: (batch_size=64, max_tgt_len=21, hidden_size=128)
         # dec_state: tuple with 2 tensors
