@@ -26,11 +26,11 @@ class Attention(nn.Module):
     def forward(
         self,
         query,
-        encoder_enc_output,
+        encoder_outputs,
         src_lengths,
     ):
-        # query: (batch_size, 1, hidden_dim)
-        # encoder_enc_output: (batch_size, max_src_len, hidden_dim)
+        # query: (batch_size, 1, hidden_dim)   
+        # encoder_outputs: (batch_size, max_src_len, hidden_dim)
         # src_lengths: (batch_size)
         # we will need to use this mask to assign float("-inf") in the attention scores
         # of the padding tokens (such that the output of the softmax is 0 in those positions)
@@ -39,34 +39,36 @@ class Attention(nn.Module):
         # the "~" is the elementwise NOT operator
         src_seq_mask = ~self.sequence_mask(src_lengths)
         #############################################
-        # TODO: Implement the forward pass of the attention layer
-        # Hints:
-        # - Use torch.bmm to do the batch matrix multiplication
-        #    (it does matrix multiplication for each sample in the batch)
-        # - Use torch.softmax to do the softmax
-        # - Use torch.tanh to do the tanh
-        # - Use torch.masked_fill to do the masking of the padding tokens
 
-        linear_encoding = self.linear_out(encoder_enc_output)
+        #query shape: [64,20,128]
+        #self.linear_in(query) shape: [64, 20, 128]
+        #encoder_outputs shape: [64,19,128]
+        #src lengths: 64 
 
-        linear_decoding = self.linear_in(query)
+        # "Attention" assigned to each word 
+        scores = torch.bmm(self.linear_in(query), encoder_outputs.transpose(1,2)) #(W.q)^T.h 
+        #assign float("-inf") in the attention scores
+        scores = scores.masked_fill(src_seq_mask.unsqueeze(1), float("-inf"))
+        #print("scores", scores.shape)
+        #scores shape: [64, 20, 19]
 
-
-        activated = self.relu(linear_encoding + linear_decoding.unsqueeze(1))
-
-        full_att_vec = self.full_att(activated)
-
-        att_weights = self.softmax(full_att_vec)
-
-        att_weights = att_weights.unsqueeze(1).squeeze(3)
-
-        attn_out = torch.bmm(att_weights, encoder_enc_output)
-        attn_out = attn_out.squeeze(1)
+        # Calculate attention weights
+        attn_weights = torch.softmax(scores, dim=2)
+        #print("attn_weights", attn_weights.shape)
+        #attn_weights shape: [64, 20, 19]
 
 
-        # attn_out: (batch_size, 1, hidden_size)
-        print(attn_out.shape)
+        # Calculate context vector
+        context = torch.bmm(attn_weights, encoder_outputs) 
+         #print("context", context.shape)
+        #context shape: [64, 20, 128]
+
+        # Calculate attention layer output
+        attn_out = torch.tanh(self.linear_out(torch.cat([query,context], dim = 2)))
+        
+        #print(attn_out.shape)
         return attn_out
+
 
     def sequence_mask(self, lengths):
         """
@@ -137,16 +139,12 @@ class Encoder(nn.Module):
         
         # output, (hn, cn) = rnn(input, (h0, c0))
         output, final_hidden = self.lstm(packed)
-        
+
         # Unpack padding
         # unpack packed sequences after having passed them to the LSTM
         enc_output, _ = torch.nn.utils.rnn.pad_packed_sequence(output, batch_first=True)
-        
-        # Sum bidirectional reshape hidden
-        # enc_output: (batch_size=64, max_src_len=19, hidden_size=64)
-        enc_output = enc_output[:, :, :self.hidden_size] + enc_output[:, : ,self.hidden_size:]
         enc_output = self.dropout(enc_output)
-        
+
         # Return output and final hidden state
         return enc_output, final_hidden
 
@@ -188,7 +186,7 @@ class Decoder(nn.Module):
         self,
         tgt,
         dec_state,
-        encoder_enc_output,
+        encoder_outputs,
         src_lengths,
     ):
         '''
@@ -201,7 +199,7 @@ class Decoder(nn.Module):
             tuple with 2 tensors 
             each tensor has size: (num_layers=1 * num_directions (D=2), batch_size=64, hidden_size=64)
             
-        encoder_enc_output: 
+        encoder_outputs: 
             encoder_outputs (enc_output of encoder)
             size: (batch_size=64, max_src_len=19, hidden_size=128); 
         
@@ -229,17 +227,13 @@ class Decoder(nn.Module):
         
         # we do our calculations
         outputs, dec_state = self.lstm(embedded, dec_state)
+        if self.attn is not None:
+            outputs = self.attn(outputs, encoder_outputs, src_lengths)
+
         
         # the output has dropout applied
         outputs = self.dropout(outputs)
-                
-        # ... and we'll use the resulting decoder state in the next timestep
-        
-        # outputs: (batch_size=64, max_tgt_len=21, hidden_size=128)
-        # dec_state: tuple with 2 tensors
-        # each tensor is (num_layers=1, batch_size=64, hidden_size=128)
-        # print("outputs: ", outputs.shape)
-        # print("dec_state[0]: ", dec_state[0].shape)
+
         return outputs, dec_state
 
 
@@ -266,13 +260,13 @@ class Seq2Seq(nn.Module):
         dec_hidden=None,
     ):
 
-        encoder_enc_output, final_enc_state = self.encoder(src, src_lengths)
+        encoder_outputs, final_enc_state = self.encoder(src, src_lengths)
 
         if dec_hidden is None:
             dec_hidden = final_enc_state
 
         output, dec_hidden = self.decoder(
-            tgt, dec_hidden, encoder_enc_output, src_lengths
+            tgt, dec_hidden, encoder_outputs, src_lengths
         )
 
         return self.generator(output), dec_hidden
