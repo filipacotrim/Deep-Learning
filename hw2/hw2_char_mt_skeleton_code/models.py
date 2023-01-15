@@ -29,16 +29,7 @@ class Attention(nn.Module):
         encoder_outputs,
         src_lengths,
     ):
-        # query: (batch_size, 1, hidden_dim)   
-        # encoder_outputs: (batch_size, max_src_len, hidden_dim)
-        # src_lengths: (batch_size)
-        # we will need to use this mask to assign float("-inf") in the attention scores
-        # of the padding tokens (such that the output of the softmax is 0 in those positions)
-        # Tip: use torch.masked_fill to do this
-        # src_seq_mask: (batch_size, max_src_len)
-        # the "~" is the elementwise NOT operator
         src_seq_mask = ~self.sequence_mask(src_lengths)
-        #############################################
 
         #query shape: [64,20,128]
         #self.linear_in(query) shape: [64, 20, 128]
@@ -49,24 +40,20 @@ class Attention(nn.Module):
         scores = torch.bmm(self.linear_in(query), encoder_outputs.transpose(1,2)) #(W.q)^T.h 
         #assign float("-inf") in the attention scores
         scores = scores.masked_fill(src_seq_mask.unsqueeze(1), float("-inf"))
-        #print("scores", scores.shape)
         #scores shape: [64, 20, 19]
 
         # Calculate attention weights
         attn_weights = torch.softmax(scores, dim=2)
-        #print("attn_weights", attn_weights.shape)
         #attn_weights shape: [64, 20, 19]
 
 
         # Calculate context vector
         context = torch.bmm(attn_weights, encoder_outputs) 
-         #print("context", context.shape)
         #context shape: [64, 20, 128]
 
         # Calculate attention layer output
         attn_out = torch.tanh(self.linear_out(torch.cat([query,context], dim = 2)))
         
-        #print(attn_out.shape)
         return attn_out
 
 
