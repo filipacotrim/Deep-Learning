@@ -13,5 +13,6 @@ https://github.com/filipacotrim/Deep-Learning/blob/main/hw1/Homework_1_Deep_Lear
 Grade: 97/100
 
 ## Second Homework Report 
-
 https://github.com/filipacotrim/Deep-Learning/blob/main/hw2/Homework_2_Deep_Learning.pdf
+
+Grade: 86.8/100
